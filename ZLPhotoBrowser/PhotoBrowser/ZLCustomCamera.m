@@ -14,6 +14,14 @@
 #import "VideoCompress.h"
 
 
+
+#import "HX_PhotoEditViewController.h"
+#import "HXPhotoManager.h"
+#import "HXPhotoModel.h"
+#import "HXPhotoPreviewViewController.h"
+#import "HXVideoEditViewController.h"
+
+
 #define kTopViewScale .5
 #define kBottomViewScale .7
 
@@ -69,6 +77,10 @@
  点击确定
  */
 - (void)onOkClick;
+/**
+ 点击编辑
+ */
+- (void)onEditClick;
 
 - (void)onDismiss;
 
@@ -83,6 +95,7 @@
         unsigned int retake : 1;
         unsigned int okClick : 1;
         unsigned int dismiss : 1;
+        unsigned int editClick : 1;
     } _delegateFlag;
     
     //避免动画及长按手势触发两次
@@ -96,6 +109,9 @@
 @property (nonatomic, assign) BOOL allowTakePhoto;
 @property (nonatomic, assign) BOOL allowRecordVideo;
 @property (nonatomic, assign) BOOL isOnlyFifteenSeconds;
+@property (nonatomic, assign) BOOL allowEditVideo;
+@property (nonatomic, assign) BOOL allowEditPhoto;
+
 
 @property (nonatomic, strong) UIColor *circleProgressColor;
 @property (nonatomic, assign) NSInteger maxRecordDuration;
@@ -110,6 +126,7 @@
 @property (nonatomic, strong) UIButton *cancelBtn;
 
 @property (nonatomic, strong) UIButton *doneBtn;
+@property (nonatomic, strong) UIButton *editBtn;
 @property (nonatomic, strong) UIView *topView;
 @property (nonatomic, strong) UIView *bottomView;
 @property (nonatomic, strong) CAShapeLayer *animateLayer;
@@ -130,11 +147,14 @@
     UIView *view = [super hitTest:point withEvent:event];
     CGPoint doneBtnPoint = [self.doneBtn convertPoint:point fromView:self];
     CGPoint cancelBtnPoint = [self.cancelBtn convertPoint:point fromView:self];
-
+    CGPoint editBtnPoint = [self.editBtn convertPoint:point fromView:self];
+    
     if ([self.doneBtn pointInside:doneBtnPoint withEvent:event]) {
         return self.doneBtn;
     }else if ([self.cancelBtn pointInside:cancelBtnPoint withEvent:event]){
         return self.cancelBtn;
+    }else if ([self.editBtn pointInside:editBtnPoint withEvent:event]){
+        return self.editBtn;
     }
     return view;
 }
@@ -184,6 +204,8 @@
     _delegateFlag.retake = [delegate respondsToSelector:@selector(onRetake)];
     _delegateFlag.okClick = [delegate respondsToSelector:@selector(onOkClick)];
     _delegateFlag.dismiss = [delegate respondsToSelector:@selector(onDismiss)];
+    _delegateFlag.editClick = [delegate respondsToSelector:@selector(onEditClick)];
+
 }
 
 - (void)layoutSubviews
@@ -221,6 +243,8 @@
 //    self.doneBtn.frame = self.bottomView.frame;
         
     self.doneBtn.frame = CGRectMake(self.frame.size.width-80,self.frame.size.height+30, 60, 30);
+    
+    self.editBtn.frame = CGRectMake(40, self.frame.size.height+30, 60, 30);
 
 //    self.doneBtn.layer.cornerRadius = height*kBottomViewScale/2;
 }
@@ -282,33 +306,33 @@
 - (void)setupUI
 {
     
-    [UIView appearance].exclusiveTouch = YES; //按钮互斥
-    self.clipsToBounds = NO;
+     [UIView appearance].exclusiveTouch = YES; //按钮互斥
+     self.clipsToBounds = NO;
     
-        self.baseView = [[UIView alloc]init];
+     self.baseView = [[UIView alloc]init];
         
-         self.leftItem = [UIButton buttonWithType:UIButtonTypeCustom];
-         [self.leftItem setTitle:@"拍60秒" forState:UIControlStateNormal];
-         [self.leftItem setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-         [self.leftItem setTitleColor:[UIColor orangeColor] forState:UIControlStateSelected];
-         self.leftItem.titleLabel.font = [UIFont systemFontOfSize:14];
-         [self.leftItem addTarget:self action:@selector(itemEvent:) forControlEvents:UIControlEventTouchUpInside];
-         [self.baseView addSubview:self.leftItem];
-         
-         self.rightitem = [UIButton buttonWithType:UIButtonTypeCustom];
-         [self.rightitem setTitle:@"拍15秒" forState:UIControlStateNormal];
-         [self.rightitem setTitleColor:[UIColor orangeColor] forState:UIControlStateSelected];
-         [self.rightitem setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-         self.rightitem.titleLabel.font = [UIFont systemFontOfSize:14];\
-         self.rightitem.selected = YES;
-         [self.rightitem addTarget:self action:@selector(itemEvent:) forControlEvents:UIControlEventTouchUpInside];
-         [self.baseView addSubview:self.rightitem];
-         
-         [self addSubview:self.baseView];
+     self.leftItem = [UIButton buttonWithType:UIButtonTypeCustom];
+     [self.leftItem setTitle:@"拍60秒" forState:UIControlStateNormal];
+     [self.leftItem setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+     [self.leftItem setTitleColor:[UIColor orangeColor] forState:UIControlStateSelected];
+     self.leftItem.titleLabel.font = [UIFont systemFontOfSize:14];
+     [self.leftItem addTarget:self action:@selector(itemEvent:) forControlEvents:UIControlEventTouchUpInside];
+     [self.baseView addSubview:self.leftItem];
+     
+     self.rightitem = [UIButton buttonWithType:UIButtonTypeCustom];
+     [self.rightitem setTitle:@"拍15秒" forState:UIControlStateNormal];
+     [self.rightitem setTitleColor:[UIColor orangeColor] forState:UIControlStateSelected];
+     [self.rightitem setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+     self.rightitem.titleLabel.font = [UIFont systemFontOfSize:14];\
+     self.rightitem.selected = YES;
+     [self.rightitem addTarget:self action:@selector(itemEvent:) forControlEvents:UIControlEventTouchUpInside];
+     [self.baseView addSubview:self.rightitem];
+     
+     [self addSubview:self.baseView];
 
-         self.orangeDot = [[UIView alloc]init];
-         self.orangeDot.backgroundColor = [UIColor orangeColor];
-         [self addSubview:_orangeDot];
+     self.orangeDot = [[UIView alloc]init];
+     self.orangeDot.backgroundColor = [UIColor orangeColor];
+     [self addSubview:_orangeDot];
         
     self.tipLabel = [[UILabel alloc] init];
     self.tipLabel.font = [UIFont systemFontOfSize:14];
@@ -337,12 +361,24 @@
     [self addSubview:self.dismissBtn];
 
     self.cancelBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-//    self.cancelBtn.backgroundColor = [kRGB(244, 244, 244) colorWithAlphaComponent:.9];
     [self.cancelBtn setImage:GetImageWithName(@"zl_cancel_btn") forState:UIControlStateNormal];
     [self.cancelBtn addTarget:self action:@selector(retake) forControlEvents:UIControlEventTouchUpInside];
-//    self.cancelBtn.layer.masksToBounds = YES;
     self.cancelBtn.hidden = YES;
     [self addSubview:self.cancelBtn];
+    
+//        if (self.allowEditVideo || self.allowEditPhoto) { //允许编辑视频   暂时不加
+//    if (self.allowEditPhoto) { //允许编辑视频   暂时不加
+        self.editBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+//        self.editBtn.frame = self.bottomView.frame;
+        self.editBtn.backgroundColor = [UIColor colorWithRed:0/255.0 green:187/255.0 blue:172/255.0 alpha:1];
+        [self.editBtn setTitle:@"编辑" forState:UIControlStateNormal];
+        [self.editBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        self.editBtn.titleLabel.font = [UIFont systemFontOfSize:14];
+        [self.editBtn addTarget:self action:@selector(editBtnClick) forControlEvents:UIControlEventTouchUpInside];
+        self.editBtn.hidden = YES;
+        self.editBtn.layer.cornerRadius = 4;
+        [self addSubview:self.editBtn];
+//    }
     
     self.doneBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     self.doneBtn.frame = self.bottomView.frame;
@@ -490,6 +526,7 @@
 {
     self.cancelBtn.hidden = NO;
     self.doneBtn.hidden = NO;
+    self.editBtn.hidden = NO;
     
     CGRect cancelRect = self.cancelBtn.frame;
     cancelRect.origin.x = 40;
@@ -514,6 +551,8 @@
     self.topView.hidden = NO;
     self.cancelBtn.hidden = YES;
     self.doneBtn.hidden = YES;
+    self.editBtn.hidden = YES;
+
   
 //    self.cancelBtn.frame = self.bottomView.frame;
     self.cancelBtn.frame = CGRectMake(20,-(kViewHeight-150-ZL_SafeAreaBottom()-40 - HEIGHT_StatusBar - 5), 30, 30);
@@ -548,11 +587,16 @@
     if (_delegateFlag.okClick) [self.delegate performSelector:@selector(onOkClick)];
 }
 
+- (void)editBtnClick
+{
+    if (_delegateFlag.editClick) [self.delegate performSelector:@selector(onEditClick)];
+}
+
 @end
 
 //--------------------------------------------------------//
 //--------------------------------------------------------//
-@interface ZLCustomCamera () <CameraToolViewDelegate, AVCaptureFileOutputRecordingDelegate, UIGestureRecognizerDelegate>
+@interface ZLCustomCamera () <CameraToolViewDelegate, AVCaptureFileOutputRecordingDelegate, UIGestureRecognizerDelegate,HX_PhotoEditViewControllerDelegate,HXVideoEditViewControllerDelegate>
 {
     //拖拽手势开始的录制
     BOOL _dragStart;
@@ -594,9 +638,13 @@
 
 @property (nonatomic, assign) AVCaptureVideoOrientation orientation;
 
+// 拍摄编辑的是视频
+@property (nonatomic, assign) BOOL isEditVideo;
 
 @property (nonatomic, assign) NSInteger timeout;
 
+@property (strong, nonatomic) HXPhotoManager *photoManager;
+@property (weak, nonatomic) id<HXPhotoPreviewViewControllerDelegate> delegate;
 
 @end
 
@@ -748,10 +796,9 @@
 {
     [super viewDidLayoutSubviews];
      
-    
     self.toolView.frame = CGRectMake(0, kViewHeight-150-ZL_SafeAreaBottom()-40, kViewWidth, 100);
     self.previewLayer.frame = self.view.layer.bounds;
-    self.toggleCameraBtn.frame = CGRectMake(kViewWidth-50, UIApplication.sharedApplication.statusBarFrame.size.height, 30, 30);
+    self.toggleCameraBtn.frame = CGRectMake(kViewWidth-50,HEIGHT_StatusBar, 30, 30);
 
     CGFloat progressHUDY = 64;
     _progressHUD.frame = CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height);
@@ -1087,6 +1134,8 @@
         [self.view insertSubview:_takedImageView belowSubview:self.toolView];
     }
     
+    self.isEditVideo = false;
+    
     __weak typeof(self) weakSelf = self;
     [self.imageOutPut captureStillImageAsynchronouslyFromConnection:videoConnection completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError *error) {
         if (imageDataSampleBuffer == NULL) {
@@ -1126,6 +1175,7 @@
     self.toolView.baseView.hidden = YES;
     self.toolView.orangeDot.hidden = YES;
     self.toggleCameraBtn.hidden = YES;
+    self.toolView.editBtn.hidden = YES;
 }
 
 //重新拍照或录制
@@ -1175,6 +1225,89 @@
                 self.doneBlock(self.takedImage, self.videoUrl);
             }
         }];
+    }
+}
+
+- (void)onEditClick {
+    self.photoManager = [HXPhotoManager managerWithType:HXPhotoManagerSelectedTypePhotoAndVideo];
+    if (self.isEditVideo) {
+        HXPhotoModel *model = [HXPhotoModel photoModelWithVideoURL:self.videoUrl];
+        HXVideoEditViewController *vc = [[HXVideoEditViewController alloc] init];
+        vc.model = model;
+        vc.delegate = self;
+        vc.manager = self.photoManager;
+        vc.isInside = YES;
+        vc.outside = false;
+        vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
+        vc.modalPresentationCapturesStatusBarAppearance = YES;
+        [self presentViewController:vc animated:YES completion:nil];
+    }else {
+        HX_PhotoEditViewController *vc = [[HX_PhotoEditViewController alloc] initWithConfiguration:self.photoManager.configuration.photoEditConfigur];
+        HXPhotoModel *model = [HXPhotoModel photoModelWithImage:self.takedImage];
+        vc.photoModel = model;
+        vc.delegate = self;
+        vc.supportRotation = YES;
+        vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
+        vc.modalPresentationCapturesStatusBarAppearance = YES;
+        [self presentViewController:vc animated:YES completion:nil];
+    }
+}
+
+#pragma mark - < HXVideoEditViewControllerDelegate >
+- (void)videoEditViewControllerDidDoneClick:(HXVideoEditViewController *)videoEditViewController beforeModel:(HXPhotoModel *)beforeModel afterModel:(HXPhotoModel *)afterModel {
+    [afterModel getAssetURLWithSuccess:^(NSURL * _Nullable URL, HXPhotoModelMediaSubType mediaType, BOOL isNetwork, HXPhotoModel * _Nullable model) {
+        if (UIVideoAtPathIsCompatibleWithSavedPhotosAlbum([URL path])) {
+                //保存相册核心代码
+//                UISaveVideoAtPathToSavedPhotosAlbum([URL path], self, @selector(video:didFinishSavingWithError:contextInfo:), nil);
+            
+            [VideoCompress compressVideoWithVideoUrl:URL withBiteRate:@(2000 * 1024) withFrameRate:@(20) withVideoWidth:@(1080) withVideoHeight:@(1920)  compressComplete:^(id responseObjc) {
+                [self.playerView reset];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self dismissViewControllerAnimated:YES completion:^{
+                        if (self.doneBlock) {
+                            self.doneBlock(self.takedImage, responseObjc[@"urlStr"]);
+                        }
+                    }];
+                });
+            }];
+             
+            }
+        } failed:^(NSDictionary * _Nullable info, HXPhotoModel * _Nullable model) {
+            NSLog(@"视频----失败");
+        }
+    ];
+}
+
+#pragma mark - < HX_PhotoEditViewControllerDelegate >
+- (void)photoEditingController:(HX_PhotoEditViewController *)photoEditingVC didFinishPhotoEdit:(HXPhotoEdit *)photoEdit photoModel:(nonnull HXPhotoModel *)photoModel {
+
+    [photoModel getImageWithSuccess:^(UIImage * _Nullable image, HXPhotoModel * _Nullable model, NSDictionary * _Nullable info) {
+        NSLog(@"图片----成功");
+        self.takedImage = image;
+        self.takedImageView.hidden = NO;
+        self.takedImageView.image = image;
+        [self.playerView reset];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self dismissViewControllerAnimated:YES completion:^{
+                if (self.doneBlock) {
+                    self.doneBlock(image, nil);
+                }
+            }];
+        });
+        UIImageWriteToSavedPhotosAlbum(image, self, @selector(savedPhotoImage:didFinishSavingWithError:contextInfo:), nil);
+        } failed:^(NSDictionary * _Nullable info, HXPhotoModel * _Nullable model) {
+            NSLog(@"图片----失败");
+    }];
+}
+
+//保存图片完成后的回调
+- (void) savedPhotoImage:(UIImage*)image didFinishSavingWithError: (NSError *)error contextInfo: (void *)contextInfo {
+    if (error) {
+        NSLog(@"保存图片出错%@", error.localizedDescription);
+    }
+    else {
+        NSLog(@"保存图片成功");
     }
 }
 
@@ -1287,12 +1420,14 @@
     if (CMTimeGetSeconds(output.recordedDuration) < 1) {
         if (self.allowTakePhoto) {
             //视频长度小于1s 允许拍照则拍照，不允许拍照，则保存小于1s的视频
-            
+            self.toolView.editBtn.hidden = NO;
             ZLLoggerDebug(@"视频长度小于1s，按拍照处理");
             [self onTakePicture];
             return;
         }
     }
+//    self.isEditVideo = YES;
+    
     [self.session stopRunning];
     self.videoUrl = outputFileURL;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{

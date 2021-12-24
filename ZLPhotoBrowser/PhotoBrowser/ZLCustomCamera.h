@@ -30,6 +30,11 @@
 
 @property (nonatomic, assign) BOOL isOnlyFifteenSeconds;
 
+// 是否允许编辑视频,默认false
+@property (nonatomic, assign) BOOL allowEditVideo;
+// 是否允许编辑图片,默认false
+@property (nonatomic, assign) BOOL allowEditPhoto;
+
 /**
  确定回调，如果拍照则videoUrl为nil，如果视频则image为nil
  */
